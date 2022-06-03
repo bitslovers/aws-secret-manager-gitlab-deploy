@@ -1,0 +1,12 @@
+{
+  "Version" : "2012-10-17",
+  "Statement" : [ {
+    "Sid" : "EnableAllPermissions",
+    "Effect" : "Allow",
+    "Principal" : {
+      "AWS" : "arn:aws:iam::AWS_ACCOUNT_ID:role/runner-iam_profile"
+    },
+    "Action" : "secretsmanager:GetSecretValue",
+    "Resource" : "arn:aws:secretsmanager:us-east-1:AWS_ACCOUNT_ID:secret:runner-pUxvkd"
+  } ]
+}

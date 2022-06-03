@@ -1,0 +1,70 @@
+variables:
+  AWS_REGION: us-east-1
+  AWS_DEFAULT_REGION: us-east-1
+  GIT_SSL_NO_VERIFY: "true"
+  PHASE: BUILD
+
+stages:
+  - build_container
+  - plan
+  - deploy
+
+build_container:
+  image: docker:latest
+  stage: build_container
+  script:
+    - docker build -t build-container .
+
+Plan:
+  image:
+    name: build-container
+    entrypoint: [""]
+  stage: plan
+  artifacts:
+    paths:
+    - plan.data
+    expire_in: 1 week
+  script:
+    - aws secretsmanager get-secret-value --secret-id MyPrivateKey | jq -r .SecretString > private-key.pem
+    - openssl smime -decrypt -in terraform.tfvars.enc -binary -inform DEM -inkey private-key.pem -out terraform.tfvars
+    - terraform init
+    - terraform plan -input=false -out=plan.data
+  only:
+    variables:
+      - $PHASE == "BUILD"
+ 
+
+Apply:
+  image:
+    name: build-container
+    entrypoint: [""]
+  when: manual
+  stage: deploy
+  script:
+    - aws secretsmanager get-secret-value --secret-id MyPrivateKey | jq -r .SecretString > private-key.pem
+    - openssl smime -decrypt -in terraform.tfvars.enc -binary -inform DEM -inkey private-key.pem -out terraform.tfvars
+    - terraform init
+    - terraform apply -auto-approve -input=false plan.data
+  only:
+    variables:
+      - $PHASE == "BUILD"
+  environment:
+    name: bitsprod
+
+
+Destroy:
+  image:
+    name: build-container
+    entrypoint: [""]
+  stage: deploy
+  script:
+    - aws secretsmanager get-secret-value --secret-id MyPrivateKey | jq -r .SecretString > private-key.pem
+    - openssl smime -decrypt -in terraform.tfvars.enc -binary -inform DEM -inkey private-key.pem -out terraform.tfvars
+    - terraform init
+    - terraform destroy -auto-approve
+  only:
+    variables:
+      - $PHASE == "DESTROY"
+  environment:
+    name: bitsprod
+    action: stop
